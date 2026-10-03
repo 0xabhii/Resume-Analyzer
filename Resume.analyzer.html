@@ -1,0 +1,118 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Analyzer</title>
+</head>
+
+<body>
+
+    <h2>Resume Analyzer</h2>
+    <p>Upload your resume in PDF or image format.</p>
+
+    <input
+        type="file"
+        id="resume"
+        accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+    >
+
+    <button onclick="uploadResume()">Analyze Resume</button>
+
+    <p id="status"></p>
+    <pre id="output"></pre>
+
+    <!-- Library for reading PDF files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <!-- Library for recognizing text in images -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+    <script>
+            async function uploadResume() {
+            let fileInput = document.querySelector("#resume");
+            let file = fileInput.files[0];
+
+            if (!file) {
+                document.querySelector("#status").textContent =
+                    "Please select a resume first.";
+                return;
+            }
+
+            let status = document.querySelector("#status");
+            let output = document.querySelector("#output");
+
+            status.textContent = "Reading your resume...";
+            output.textContent = "";
+
+            try {
+                let text = "";
+
+                // If the uploaded file is a PDF
+                if (file.type === "application/pdf") {
+                    let pdf = await pdfjsLib.getDocument({
+                        data: await file.arrayBuffer()
+                    }).promise;
+
+                    // Read every page of the PDF
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        let page = await pdf.getPage(i);
+                        let content = await page.getTextContent();
+
+                        text += content.items
+                            .map(item => item.str)
+                            .join(" ") + "\n";
+                    }
+
+                // If the uploaded file is an image
+                } else if (
+                    file.type === "image/png" ||
+                    file.type === "image/jpeg"
+                ) {
+                    let result = await Tesseract.recognize(
+                        file,
+                        "eng",
+                        {
+                            logger: message => {
+                                if (message.status === "recognizing text") {
+                                    status.textContent =
+                                        "Recognizing image text: " +
+                                        Math.round(message.progress * 100) + "%";
+                                }
+                            }
+                        }
+                    );
+
+                    text = result.data.text;
+
+                } else {
+                    status.textContent =
+                        "Please upload a PDF, JPG, JPEG, or PNG file.";
+                    return;
+                }
+
+                // Display the extracted text
+                if (text.trim() === "") {
+                    status.textContent =
+                        "No text found. Try a clearer or text-based file.";
+                    return;
+                }
+
+                output.textContent = text;
+                status.textContent =
+                    "Resume text extracted successfully!";
+
+                console.log("Extracted resume text:", text);
+
+            } catch (error) {
+                console.error("Resume processing error:", error);
+
+                status.textContent =
+                    "Could not read the file. Please check the console.";
+            }
+        }
+    </script>
+
+</body>
+</html>
